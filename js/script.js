@@ -342,9 +342,12 @@ function loadFromServer() {
             restoreSaveStateObject(data.state); // Processes the data and sets loot/partySize as appropriate.
             saveState();
             updateUI();
+        } else if (data && data.status === "empty") {
+            // TODO: Display message in UI.
+            console.log("Data on server is empty.");
         } else {
             // TODO: Display error message in UI.
-            console.log("Could not load data from server.");
+            console.log("Could not load data from the server.");
         }
     })
     
@@ -363,7 +366,7 @@ function syncToServer() {
         }
     };
 
-    fetch("http://goldtop.hopto.org/sav/eikthyrnirU", {
+    fetch("http://goldtop.hopto.org/save/eikthyrnirU", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
