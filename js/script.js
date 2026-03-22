@@ -289,7 +289,6 @@ function restoreSaveStateObject(saveStateObject) {
 
 function restoreState() {
     let saveStateObject = parseJSON(localStorage.getItem(STORAGE_KEY));
-    console.log(saveStateObject);
     if (saveStateObject === null) return; // If the attempt to parse the JSON is null, just don't do anything.
     if (!validateStateData(saveStateObject)) return; // Validate the object we just loaded and do nothing if it's not valid.
 
