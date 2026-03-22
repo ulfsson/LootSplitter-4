@@ -289,7 +289,6 @@ function restoreSaveStateObject(saveStateObject) {
 
 function restoreState() {
     let saveStateObject = parseJSON(localStorage.getItem(STORAGE_KEY));
-    console.log(saveStateObject);
     if (saveStateObject === null) return; // If the attempt to parse the JSON is null, just don't do anything.
     if (!validateStateData(saveStateObject)) return; // Validate the object we just loaded and do nothing if it's not valid.
 
@@ -322,13 +321,15 @@ function showPartySetup() {
 
 
 function loadFromServer() {
+    hideSyncError();
+
     fetch("http://goldtop.hopto.org/load/eikthyrnirU")
     
     .then(response => {
         if (!response.ok) {
-            // TODO: Display error in UI.
-            console.log(response.status);
-            return;
+            return Promise.reject(
+                new Error(`ERROR - Unable to load from server. Server response: ${response.status}`)
+            );
         }
         
         return response.json()
@@ -342,19 +343,24 @@ function loadFromServer() {
             restoreSaveStateObject(data.state); // Processes the data and sets loot/partySize as appropriate.
             saveState();
             updateUI();
+        } else if (data && data.status === "empty") {
+            showSyncError(`Data NOT loaded from server, object is empty.`);
+            return;
         } else {
-            // TODO: Display error message in UI.
-            console.log("Could not load data from server.");
+            showSyncError(`Cannot load from server. Data is nonexistent or invalid.`);
+            return;
         }
     })
     
     .catch(error => {
-        console.log(error.message);
+        showSyncError(`${error.message}`);
     });
 }
 
 
 function syncToServer() {
+    hideSyncError();
+
     const payload = {
         studentId: "eikthyrnirU",
         state: {
@@ -363,7 +369,7 @@ function syncToServer() {
         }
     };
 
-    fetch("http://goldtop.hopto.org/sav/eikthyrnirU", {
+    fetch("http://goldtop.hopto.org/save/eikthyrnirU", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -373,9 +379,9 @@ function syncToServer() {
     
     .then(response => {
         if (!response.ok) {
-            // TODO: Display error in UI.
-            console.log(response.status);
-            return;
+            return Promise.reject(
+                new Error(`ERROR - Unable to sync to server. Server response: ${response.status}`)
+            );
         }
         
         return response.json();
@@ -383,15 +389,28 @@ function syncToServer() {
     
     .then(data => {
         if (data && data.status !== "saved") {
-            // TODO: Display error message in UI.
-            console.log("Could not save data to server.");
+            showSyncError(`ERROR - Unable to sync to server. Response status: ${data.status}`);
             return;
         }
     })
     
     .catch(error => {
-        console.log(error);
+        showSyncError(`${error.message}`)
     });
+}
+
+
+function showSyncError(err_message) {
+    const SYNC_MESSAGE = document.getElementById("syncmessage")
+    SYNC_MESSAGE.innerText = err_message;
+    SYNC_MESSAGE.display = "block";
+}
+
+
+function hideSyncError() {
+    const SYNC_MESSAGE = document.getElementById("syncmessage")
+    SYNC_MESSAGE.innerText = "";
+    SYNC_MESSAGE.display = "none";
 }
 
 
@@ -436,8 +455,8 @@ document.getElementById('debugRandomLoot').addEventListener('click', debugRandom
 document.getElementById('party-setup-close-button').addEventListener('click', closePartySetup);
 document.getElementById('party-setup-show-button').addEventListener('click', showPartySetup);
 document.getElementById('resetAllButton').addEventListener('click', resetAll);
-document.getElementById('debugTestSyncPost').addEventListener('click', debugTestSyncPost);
-document.getElementById('debugTestSyncGet').addEventListener('click', debugTestSyncGet);
+document.getElementById('SyncPostButton').addEventListener('click', debugTestSyncPost);
+document.getElementById('SyncGetButton').addEventListener('click', debugTestSyncGet);
 
 
 restoreState();
