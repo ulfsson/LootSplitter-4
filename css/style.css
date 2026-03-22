@@ -339,6 +339,13 @@ code {
     font-family: 'Courier New', Courier, monospace;
 }
 
+
+#syncmessage {
+    font-weight: bold;
+    color: darkred;
+    display: none;
+}
+
 @media (min-width: 768px) {
     main {
         display: grid;
