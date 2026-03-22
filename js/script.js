@@ -234,16 +234,16 @@ function updateUI() {
 
 
 function saveState() {
-    let saveStateObject = [
-        partySize,
-        lootList
-    ]
+    let saveStateObject = {
+        partySize: partySize,
+        loot: lootList
+    }
     
-    // console.log(saveStateObject);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveStateObject));
 }
 
 
+// A simple function to parse a JSON string without a bunch of errors popping up in the console.
 function parseJSON(json_string) {
     let parsed_json = null;
 
@@ -255,27 +255,26 @@ function parseJSON(json_string) {
 }
 
 
-function restoreState() {
-    // let saveStateObject = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    let saveStateObject = parseJSON(localStorage.getItem(STORAGE_KEY));
+// Some checks to ensure that the data we're restoring is valid.
+// Checks for null, non-object, length, and appropriate types of data.
+function validateStateData(saveStateObject) {
+    if (saveStateObject === null || typeof(saveStateObject) !== 'object') return false;
+    if (!("loot" in saveStateObject) || !("partySize" in saveStateObject)) return false; // We must have these two keys present.
+    if (typeof(saveStateObject["partySize"]) !== 'number' || saveStateObject["partySize"] < 1) return false; // Party size must be at least 1.
+    if (saveStateObject["loot"].length === 0 || typeof(saveStateObject["loot"]) !== 'object') return false; // The second object must be an object and contain data.
 
-    if (saveStateObject === null) return; // If the attempt to parse the JSON is null, just don't do anything.
-    
-    // A bunch of checks to ensure that the data we're restoring is valid.
-    // Checks for null, non-object, length, and appropriate types and validity of that specific expected data.
-    if (saveStateObject === null || typeof(saveStateObject) !== 'object') return;
-    if (saveStateObject.length !== 2) return;
-    if (typeof(saveStateObject[0]) !== 'number' || saveStateObject[0] < 1) return; // Party size must be at least 1.
+    return true;
+}
 
-    let loadLootList = saveStateObject[1];
-    if (loadLootList.length === 0 || typeof(loadLootList) !== 'object') return; // The second object must be an object and contain data.
-     
-    // We construct a new "blank" object from scratch since we're only interested in the keys.
+
+function restoreSaveStateObject(saveStateObject) {
+    // Loops through the loot data and verifies it against a known LootItem object for the correct keys.
     // Then in the for loop after we compare the stringified version of the loot object's keys.
     // If they don't match, we skip that iteration and go to the next.
     let testKeys = JSON.stringify(Object.keys(new LootItem()).sort());
+    lootList = []; // Clear out the loot list before processing.
 
-    for (loot of loadLootList) {
+    for (loot of saveStateObject["loot"]) {
         let lootObjectKeys = JSON.stringify(Object.keys(loot).sort()); // Get
         if (lootObjectKeys !== testKeys) continue;
 
@@ -283,8 +282,18 @@ function restoreState() {
         lootList.push(newLoot);
     }
 
-    PARTY_NUMBER_INPUT.value = saveStateObject[0];
-    partySize = saveStateObject[0];
+    PARTY_NUMBER_INPUT.value = saveStateObject["partySize"];
+    partySize = saveStateObject["partySize"];
+}
+
+
+function restoreState() {
+    let saveStateObject = parseJSON(localStorage.getItem(STORAGE_KEY));
+    console.log(saveStateObject);
+    if (saveStateObject === null) return; // If the attempt to parse the JSON is null, just don't do anything.
+    if (!validateStateData(saveStateObject)) return; // Validate the object we just loaded and do nothing if it's not valid.
+
+    restoreSaveStateObject(saveStateObject);
     updateUI();
 }
 
@@ -312,6 +321,80 @@ function showPartySetup() {
 }
 
 
+function loadFromServer() {
+    fetch("http://goldtop.hopto.org/load/eikthyrnirU")
+    
+    .then(response => {
+        if (!response.ok) {
+            // TODO: Display error in UI.
+            console.log(response.status);
+            return;
+        }
+        
+        return response.json()
+    })
+    
+    .then(data => {
+        if (data && data.status === "loaded") {
+            if (data.state === null) return; // If for some reason the data is null, bail.
+            if (!validateStateData(data.state)) return; // Validate the object we just loaded and do nothing if it's not valid.
+
+            restoreSaveStateObject(data.state); // Processes the data and sets loot/partySize as appropriate.
+            saveState();
+            updateUI();
+        } else {
+            // TODO: Display error message in UI.
+            console.log("Could not load data from server.");
+        }
+    })
+    
+    .catch(error => {
+        console.log(error.message);
+    });
+}
+
+
+function syncToServer() {
+    const payload = {
+        studentId: "eikthyrnirU",
+        state: {
+            partySize: partySize,
+            loot: lootList
+        }
+    };
+
+    fetch("http://goldtop.hopto.org/sav/eikthyrnirU", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    
+    .then(response => {
+        if (!response.ok) {
+            // TODO: Display error in UI.
+            console.log(response.status);
+            return;
+        }
+        
+        return response.json();
+    })
+    
+    .then(data => {
+        if (data && data.status !== "saved") {
+            // TODO: Display error message in UI.
+            console.log("Could not save data to server.");
+            return;
+        }
+    })
+    
+    .catch(error => {
+        console.log(error);
+    });
+}
+
+
 // A debug function for quickly adding a random set of loot to the loot table without needing to enter things manually.
 // Also assigns a random value and rarity.
 function debugRandomLoot() {
@@ -335,6 +418,16 @@ function debugRandomLoot() {
 }
 
 
+function debugTestSyncGet() {
+    loadFromServer();
+}
+
+
+function debugTestSyncPost() {
+    syncToServer();
+}
+
+
 // Set up the event listeners for the existing buttons on the page.
 document.getElementById('addLootButton').addEventListener('click', addLoot);
 document.getElementById('splitLootButton').addEventListener('click', updateUI);
@@ -343,6 +436,9 @@ document.getElementById('debugRandomLoot').addEventListener('click', debugRandom
 document.getElementById('party-setup-close-button').addEventListener('click', closePartySetup);
 document.getElementById('party-setup-show-button').addEventListener('click', showPartySetup);
 document.getElementById('resetAllButton').addEventListener('click', resetAll);
+document.getElementById('debugTestSyncPost').addEventListener('click', debugTestSyncPost);
+document.getElementById('debugTestSyncGet').addEventListener('click', debugTestSyncGet);
+
 
 restoreState();
 
