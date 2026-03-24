@@ -323,7 +323,7 @@ function showPartySetup() {
 function loadFromServer() {
     hideSyncError();
 
-    fetch("http://goldtop.hopto.org/load/eikthyrnirU")
+    fetch("https://goldtop.hopto.org/load/eikthyrnirU")
     
     .then(response => {
         if (!response.ok) {
@@ -369,7 +369,7 @@ function syncToServer() {
         }
     };
 
-    fetch("http://goldtop.hopto.org/save/eikthyrnirU", {
+    fetch("https://goldtop.hopto.org/save/eikthyrnirU", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
